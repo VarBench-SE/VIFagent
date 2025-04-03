@@ -1,6 +1,27 @@
 #labels must be a list
 DETECTION_PROMPT: str = """Detect, with no more than 20 items. Output a json list where each entry contains the 2D bounding box in "box_2d" and {labels} in "label"."""
-FEATURE_IDENTIFIER_PROMPT:str = """List, with no more than 20 items, each individual specific feature of the image in a json array, where each feature contains a precise name making it identifiable, preferably with a position and color attribute. Preferably describe high level features in one to five words, like object, things or specific things in the image. """
+FEATURE_IDENTIFIER_PROMPT:str = """Give me a json describing the image
+The first field description contains a high-level description of the image.  
+The second field features contains a list of up to 20 specific features.
+Notes: 
+- Each feature MUST have a precise name, preferably with position and color attributes.  
+- High-level features CAN be described in one to five words (e.g., objects, things, or specific elements in the image).  
+- the json MUST be between code blocks.
+- You MUST follow the exact pattern below.
+
+Output format:
+```json
+{
+  "description": "high-level description",
+  "features": [
+    "feature1",
+    "feature2",
+    "feature3",
+    ...
+  ]
+}
+```
+"""
 
 SYSTEM_PROMPT_GENERATION: str = """
 You are an expert coding assistant specialized in modifying file contents based on instructions.

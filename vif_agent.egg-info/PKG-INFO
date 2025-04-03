@@ -29,7 +29,7 @@ Upon receiving an instruction a code, the VIF-agent workflow acts in three steps
   - A list of mutants are created from the initial code(by removing random commands).
   - Mutants that modify the image within the bounding boxes are associated with the features.
   - The lines modified by each mutant are annotated by commenting the associated feature(s)
-- Customization: The commented code is now given with the instruction to the customization model, that customizes the code according to the instruction.NOTE: this customization step will probably be enhanced with an agentic workflow(using tool and iterative refinement)
+- Customization: The commented code is now given with the instruction to the customization model(named simply model), that customizes the code according to the instruction.NOTE: this customization step will probably be enhanced with an agentic workflow(using tool and iterative refinement)
 
 ## Get Started
 

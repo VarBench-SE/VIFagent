@@ -1,2 +1,5 @@
 .venv/
 .tmp/
+vif_agent/test_agent.py
+build/
+dist/
