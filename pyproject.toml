@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vif_agent"
+version = "0.0.2"
+authors = [{ name = "Charly REUX", email = "charly.reux@inria.fr" }]
+description = "VIsual and Feature-based Agent for code customization"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+]
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+dependencies = [
+  "loguru>=0.7.3",
+  "numpy>=1.26.4",
+  "openai>=1.70.0",
+  "pdf2image>=1.17.0",
+  "Pillow>=11.1.0",
+  "pydantic>=2.11.1",
+]
+
+#[project.urls]
+#Homepage = "https://github.com/pypa/sampleproject"
+#Issues = "https://github.com/pypa/sampleproject/issues"
