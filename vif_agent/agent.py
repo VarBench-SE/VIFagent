@@ -1,3 +1,5 @@
+import os
+import shutil
 from typing import Iterable
 from openai import OpenAI
 from collections.abc import Callable
@@ -9,6 +11,10 @@ import json
 import re
 from functools import cache
 from loguru import logger
+import uuid
+import sys
+logger.remove()
+logger.add(sys.stderr, level="INFO")
 
 
 class VifAgent:
@@ -17,32 +23,29 @@ class VifAgent:
         code_renderer: Callable[[str], Image.Image],
         client: OpenAI,
         model: str,
+        temperature: float = 0.0,
         search_client: OpenAI = None,
         search_model: str = None,
+        search_model_temperature=None,
         identification_client: OpenAI = None,
         identification_model: str = None,
-        temperature: float = 0,
+        identification_model_temperature=0.3,
+        debug=False,
+        debug_folder=".tmp/debug",
     ):
         self.client = client
         self.model = model
         self.code_renderer = code_renderer
         self.temperature = temperature
-        if not search_client:
-            self.search_client = client
-        else:
-            self.search_client = search_client
-        if not identification_client:
-            self.identification_client = client
-        else:
-            self.identification_client = identification_client
-        if not search_model:
-            self.search_model = model
-        else:
-            self.search_model = search_model
-        if not identification_model:
-            self.identification_model = model
-        else:
-            self.identification_model = identification_model
+        self.identification_model_temperature = identification_model_temperature
+        self.debug = debug
+        self.debug_folder = debug_folder
+
+        self.search_client = search_client or client
+        self.search_model_temperature = search_model_temperature or temperature
+        self.identification_client = identification_client or client
+        self.search_model = search_model or model
+        self.identification_model = identification_model or model
 
     def apply_instruction(self, code: str, instruction: str):
         annotated_code = self.identify_features(code)
@@ -73,6 +76,8 @@ class VifAgent:
         Returns:
             str: The new code, commented with the appropriate features
         """
+        self.debug_id = str(uuid.uuid4())
+        os.mkdir(os.path.join(self.debug_folder, self.debug_id))
         # unifying the code for easier parsing in mutant creation
         code = "\n".join(line.strip() for line in code.split("\n"))
         # render image
@@ -82,7 +87,7 @@ class VifAgent:
         encoded_image = encode_image(image=base_image)
         response = self.search_client.chat.completions.create(
             model=self.search_model,
-            temperature=self.temperature,
+            temperature=self.search_model_temperature,
             messages=[
                 {
                     "role": "user",
@@ -102,14 +107,29 @@ class VifAgent:
             ],
         )
         pattern = r"```(?:\w+)?\n([\s\S]+?)```"
-        match = re.search(pattern, response.choices[0].message.content)
-        features_match = match.group(1)
+        search_match = re.search(pattern, response.choices[0].message.content)
+        if not search_match:
+            logger.warning(
+                f"Feature search failed, using un-commented code, unparseable response {response.choices[0].message.content}"
+            )
+            return code
+
+        features_match = search_match.group(1)
         features = json.loads(features_match)
+        """DEBUG"""
+        if self.debug:
+            json.dump(
+                features,
+                open(
+                    os.path.join(self.debug_folder, self.debug_id, "features.json"), "w"
+                ),
+            )
+        """"""
         # Segmentation via google ai spatial
         logger.info("Identifying features")
         response = self.identification_client.chat.completions.create(
             model=self.identification_model,
-            temperature=self.temperature,
+            temperature=self.identification_model_temperature,
             messages=[
                 {
                     "role": "user",
@@ -131,13 +151,25 @@ class VifAgent:
             ],
         )
         pattern = r"```(?:\w+)?\n([\s\S]+?)```"
-        match = re.search(pattern, response.choices[0].message.content)
+        id_match = re.search(pattern, response.choices[0].message.content)
 
-        json_boxes = match.group(1)
+        if not id_match:
+            logger.warning(
+                f"Feature identification failed, using un-commented code, unparseable response {response.choices[0].message.content}"
+            )
+            return code
+
+        json_boxes = id_match.group(1)
         detected_boxes = json.loads(json_boxes)
         detected_boxes = [adjust_bbox(box, base_image) for box in detected_boxes]
+        """DEBUG"""
+        if self.debug:
+            json.dump(
+                detected_boxes,
+                open(os.path.join(self.debug_folder, self.debug_id, "boxes.json"), "w"),
+            )
+        """"""
         # create mutants of the code
-
         mutant_creator = TexRegMutantCreator()
         mutants = mutant_creator.create_mutants(code)
 
@@ -145,15 +177,29 @@ class VifAgent:
         char_id_feature: dict = (
             {}
         )  # mapping between the character index and the detected feature
-        # TODO remove => debug
-        # base_image.save(".tmp/base_image.png")
-        # shutil.rmtree(".tmp/features/", ignore_errors=True)
-        # os.mkdir(".tmp/features")
-
+        """DEBUG"""
+        if self.debug:
+            base_image.save(
+                os.path.join(self.debug_folder, self.debug_id, "base_image.png")
+            )
+            shutil.rmtree(
+                os.path.join(self.debug_folder, self.debug_id, "features/"),
+                ignore_errors=True,
+            )
+            os.mkdir(os.path.join(self.debug_folder, self.debug_id, "features"))
+        """"""
         for box in detected_boxes:
             base_image_mask = base_image.crop(box["box_2d"])
-            # TODO remove => debug
-            # base_image_mask.save(".tmp/features/" + box["label"] + ".png")
+            """DEBUG"""
+            if self.debug:
+                base_image_mask.save(
+                    os.path.join(
+                        self.debug_folder,
+                        self.debug_id,
+                        "features/" + box["label"] + ".png",
+                    )
+                )
+            """"""
             cur_mse_map: list = []
             for mutant, mutant_image, char_number in mutants:
                 mutant_image_mask = mutant_image.crop(box["box_2d"])
@@ -194,4 +240,20 @@ class VifAgent:
         annotated_code = (
             comment_character + features["description"] + "\n" + annotated_code
         )
+        """DEBUG"""
+        if self.debug:
+            with open(
+                os.path.join(self.debug_folder, self.debug_id, "commented_code.tex"),
+                "w",
+            ) as annot:
+                annot.write(annotated_code)
+        """"""
         return annotated_code
+
+    def __str__(self):
+        return (
+            f"VifAgent(model={self.model}, temperature={self.temperature}, "
+            f"search_model={self.search_model}, search_model_temperature={self.search_model_temperature}, "
+            f"identification_model={self.identification_model}, identification_model_temperature={self.identification_model_temperature}, "
+            f"debug={self.debug}, debug_folder='{self.debug_folder}')"
+        )

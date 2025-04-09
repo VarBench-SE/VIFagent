@@ -1,8 +1,10 @@
 #labels must be a list
-DETECTION_PROMPT: str = """Detect, with no more than 20 items. Output a json list where each entry contains the 2D bounding box in "box_2d" and {labels} in "label"."""
+DETECTION_PROMPT: str = """Detect, with no more than 20 items. Output a json list where each entry contains the 2D bounding box in "box_2d" and each of these labels:
+{labels} 
+in a field "label"."""
 FEATURE_IDENTIFIER_PROMPT:str = """Give me a json describing the image
-The first field description contains a high-level description of the image.  
-The second field features contains a list of up to 20 specific features.
+The first field "description" contains a high-level description of the image.  
+The second field "features" contains a list of up to 20 specific features.
 Notes: 
 - Each feature MUST have a precise name, preferably with position and color attributes.  
 - High-level features CAN be described in one to five words (e.g., objects, things, or specific elements in the image).  

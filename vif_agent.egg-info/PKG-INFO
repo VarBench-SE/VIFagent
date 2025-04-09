@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vif_agent
-Version: 0.0.2
+Version: 0.0.3
 Summary: VIsual and Feature-based Agent for code customization
 Author-email: Charly REUX <charly.reux@inria.fr>
 License-Expression: MIT

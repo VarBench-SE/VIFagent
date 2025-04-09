@@ -1,4 +1,5 @@
 from PIL import Image
+from loguru import logger
 from vif_agent.renderer.tex_renderer import TexRenderer, TexRendererException
 import re
 
@@ -28,7 +29,7 @@ class TexRegMutantCreator:
                         continue
                     mutants.append((current_possible_mutant,image,start))
                 except TexRendererException as e:
-                    print(e)
+                    logger.info("non valid mutant, skipping")
                     continue
 
         return mutants

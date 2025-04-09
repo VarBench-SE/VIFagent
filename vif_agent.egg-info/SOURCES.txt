@@ -1,10 +1,10 @@
 LICENSE
 README.md
 pyproject.toml
+tests/test_comment.py
 vif_agent/__init__.py
 vif_agent/agent.py
 vif_agent/prompt.py
-vif_agent/test_agent.py
 vif_agent/utils.py
 vif_agent.egg-info/PKG-INFO
 vif_agent.egg-info/SOURCES.txt
