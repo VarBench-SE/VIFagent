@@ -5,53 +5,48 @@
 \tikzset{
 chimpanzee/.pic={
 \tikzset{x=3cm/3.5,y=3cm/3.5, shift={(0,1/4)}}
-%left pink monkey ear
+%pink monkey face, dark gray monkey head outline
 \fill [BlueGrey700] (165:5/4 and 1) ellipse [radius=1/2];
-%left pink monkey ear
+%pink monkey face, dark gray monkey head outline
 \fill [Pink100]     (165:5/4 and 1) ellipse [radius=1/3];
-%right pink monkey ear
-\begin{scope}
-%left pink monkey ear
+%left pink monkey ear, pink monkey face
 \fill [BlueGrey700]
 (0,-1/2) ellipse [x radius=1, y radius=4/3]
 (0,   0) ellipse [x radius=4/3, y radius=1];
-%right pink monkey ear
 \scoped{
 \clip(0,-2) rectangle(9/5,1);
-%right pink monkey ear
+%pink monkey face, dark gray monkey head outline
 \fill [BlueGrey900] (15:5/4 and 1) ellipse [radius=1/2];
-%right pink monkey ear
+%pink monkey face, dark gray monkey head outline
 \fill [Pink200]     (15:5/4 and 1) ellipse [radius=1/3];
-%right pink monkey ear
+%right pink monkey ear, pink monkey face
 \fill [BlueGrey900]
 (0,-1/2) ellipse [x radius=1, y radius=4/3]
 (0,   0) ellipse [x radius=4/3, y radius=1];
 }
-\end{scope}
-%pink monkey nose
+%pink monkey nose, pink monkey mouth
 \fill [Pink100]            (  0,-2/3) ellipse [x radius=5/6, y radius=  1];
-%left black monkey eye
+%left pink monkey ear, left black monkey eye
 \fill [Pink100, xscale=-1] (1/2,   0) ellipse [x radius=3/5, y radius=2/3];
-%right pink monkey ear
+%right pink monkey ear, pink monkey face
 \fill [Pink100, xscale= 1] (1/2,   0) ellipse [x radius=3/5, y radius=2/3];
-%pink monkey face
 \scoped{
 \clip(0,-2) rectangle(9/5,1);
-%pink monkey mouth
+%pink monkey mouth, pink monkey face
 \fill [Pink200]            (  0,-2/3) ellipse [x radius=5/6, y radius=  1];
-%pink monkey face
+%pink monkey face, dark gray monkey head outline
 \fill [Pink200, xscale=-1] (1/2,   0) ellipse [x radius=3/5, y radius=2/3];
-%right black monkey eye
+%right pink monkey ear, right black monkey eye
 \fill [Pink200, xscale= 1] (1/2,   0) ellipse [x radius=3/5, y radius=2/3];
 }
 \foreach \i in {-1,1}
-%left black monkey eye
+%left black monkey eye, right black monkey eye
 \fill [BlueGrey900, xscale=\i] (1/2,0) ellipse [radius=1/4];
-%pink monkey nose
+%pink monkey nose, pink monkey face
 \fill [Pink300]
 (-1/7,-2/3) ellipse [radius=1/9]
 ( 1/7,-2/3) ellipse [radius=1/9];
-%pink monkey mouth
+%pink monkey mouth, pink monkey face
 \fill [Pink300]
 (-1/2,-1) arc (180:360:1/2 and 1/8) arc (360:180:1/2 and 1/4);
 }

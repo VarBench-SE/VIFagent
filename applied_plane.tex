@@ -1,18 +1,15 @@
-%The image shows a 3D coordinate system with x, y, and z axes. A plane labeled 'II' is positioned in the positive octant. A vector 'ro' extends from the origin 'O' to a point 'Po' on the plane. Another vector 'u' is shown on the left side of the plane.
+```latex
+%A3D coordinate system with a plane, a vector, and a point.
 \documentclass[tikz,border=5]{standalone}
 
-%Drawing
 \usepackage{tikz}
 
-%Tikz Library
 \usetikzlibrary{calc}
 
-%Notation
 \usepackage{physics}
 
 \begin{document}
 
-% All numbers must be in [0,1] to fall in the plane drawn
 \def\t{0.9}
 \def\s{0.04}
 \def\tt{0.3}
@@ -28,31 +25,42 @@
 \coordinate (n1) at ($(x2) - (x1)$);
 \coordinate (n2) at ($(x2) - (x3)$);
 \coordinate (x5) at ($(x1) + \s*(n1) - \t*(n2)$);
-\node[outer sep = 1pt, inner sep = 1pt] (x6) at ($(x1) + \ss*(n1) - \tt*(n2)$) {};
+\node[outer sep =1pt, inner sep =1pt] (x6) at ($(x1) + \ss*(n1) - \tt*(n2)$) {};
 \coordinate (x7) at ($(x1) + \sss*(n1) - \ttt*(n2)$);
 \coordinate (O) at (0,0,0);
-\node[outer sep = 1pt, inner sep = 1pt] (P) at (2.5,1,5.5) {};
+\node[outer sep =1pt, inner sep =1pt] (P) at (2.5,1,5.5) {};
 
-%Origin point O, Black O label
-\draw[-latex] (-2.5,0,0) -- (2.5,0,0) node[pos = 1.05] {$x$};
-\draw[-latex] (0,-3.5,0) -- (0,3.5,0) node[pos = 1.05] {$y$};
-\draw[-latex] (0,0,0) -- (0,0,7) node[pos = 1.05] {$z$};
+%Origin point O
+\draw[-latex] (-2.5,0,0) -- (2.5,0,0) node[pos =1.05] {$x$};
+\draw[-latex] (0,-3.5,0) -- (0,3.5,0) node[pos =1.05] {$y$};
+\draw[-latex] (0,0,0) -- (0,0,7) node[pos =1.05] {$z$};
 \draw[draw=black, fill=black] (O) circle (1pt) node[below] {${O}$};
 
-%Gray vector to Po, Gray plane surface
+%Black vector ro, x-axis arrow
 \draw[-latex, thick] (O) -- (x6) node[pos=0.45, shift={(0.1,0.3)}] {$\vb{r_o}$};
-\path[draw=black, fill=black!20, thick, opacity = 0.8] (x1) -- (x2) -- (x3) -- (x4) -- (x1);
-%Plane II, Black II label
-\node[shift={(-0.45,0.6)}] at (x3) {$\Pi$};
+\path[draw=black, fill=black!20, thick, opacity =0.8] (x1) -- (x2) -- (x3) -- (x4) -- (x1);
+%Gray plane Π
+\node[shift={(-0.45,0.6)}] at (x3) {$\Pi_1$};
 \draw[-latex, thick] (x5) -- ($(x5)!0.07!(-8,0,24)$) node[pos=0.5, shift={(-0.2,-0.1)}] {$\vb{u}$};
-%Point Po on the plane, Black Po label
+%Point Po on plane, Gray plane Π
 \draw[draw=black, fill=black] (x6) circle (1pt) node[above right] {${P_o}$};
 
-%Gray plane surface
+%Gray plane Π
 \draw[draw=black, fill=black] (x7) circle (0.5pt);
-%Gray plane surface
+%z-axis arrow, Gray plane Π
 \draw (x7) -- (0,0,6.5);
+
+% Second plane Pi_2
+\coordinate (y1) at (-2,2,4);
+\coordinate (y2) at (2,2,4);
+\coordinate (y3) at (2,-2,4);
+\coordinate (y4) at (-2,-2,4);
+\path[draw=black, fill=black!20, thick, opacity =0.3] (y1) -- (y2) -- (y3) -- (y4) -- (y1);
+\node[shift={(-0.45,0.6)}] at (y3) {$\Pi_2$};
+\draw (y1) -- ($(y1)!1.2!(0,0,4)$);
+\draw (y3) -- ($(y3)!0.7!(0,0,4)$);
 
 \end{tikzpicture}
 
 \end{document}
+```

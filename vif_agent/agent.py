@@ -6,13 +6,19 @@ from collections.abc import Callable
 from PIL import Image
 from vif_agent.utils import adjust_bbox, encode_image, mse
 from vif_agent.prompt import *
-from vif_agent.mutation.tex_mutant_creator import TexRegMutantCreator
+from vif_agent.mutation.tex_mutant_creator import (
+    TexMappingMutantCreator,
+    TexRegBrutalMutantCreator,
+    TexRegMutantCreator,
+    TexMutantCreator,
+)
 import json
 import re
 from functools import cache
 from loguru import logger
 import uuid
 import sys
+
 logger.remove()
 logger.add(sys.stderr, level="INFO")
 
@@ -31,7 +37,9 @@ class VifAgent:
         identification_model: str = None,
         identification_model_temperature=0.3,
         debug=False,
+        clarify_instruction=True,
         debug_folder=".tmp/debug",
+        mutant_creator=TexMappingMutantCreator(),
     ):
         self.client = client
         self.model = model
@@ -47,11 +55,25 @@ class VifAgent:
         self.search_model = search_model or model
         self.identification_model = identification_model or model
 
+        self.clarify_instruction = clarify_instruction
+
+        self.mutant_creator = mutant_creator
+
     def apply_instruction(self, code: str, instruction: str):
-        annotated_code = self.identify_features(code)
+        """DEBUG"""
+        if self.debug:
+            self.debug_id = str(uuid.uuid4())
+            os.mkdir(os.path.join(self.debug_folder, self.debug_id))
+        """"""
+        annotated_code, base_image = self.identify_features(code)
         user_instruction = IT_PROMPT.format(
             instruction=instruction, content=annotated_code
         )
+
+        if self.apply_clarification:
+            logger.info("clarifying the instruction")
+            instruction = self.apply_clarification(instruction, base_image)
+
         logger.info("applying the instruction")
         response = self.client.chat.completions.create(
             model=self.model,
@@ -66,8 +88,47 @@ class VifAgent:
         )
         return response.choices[-1].message.content
 
-    @cache
-    def identify_features(self, code: str, comment_character: str = "%") -> str:
+    def apply_clarification(self, instruction: str, base_image: Image.Image):
+        encoded_image = encode_image(image=base_image)
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            temperature=self.temperature,
+            messages=[
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT_CLARIFY,
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": instruction,
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{encoded_image}"
+                            },
+                        },
+                    ],
+                },
+            ],
+        )
+
+        new_instruction = response.choices[-1].message.content
+        if self.debug:
+            open(
+                os.path.join(self.debug_folder, self.debug_id, "new_instruction.txt"),
+                "w",
+            ).write(new_instruction)
+
+        return new_instruction
+
+    def identify_features(
+        self, code: str, comment_character: str = "%"
+    ) -> tuple[str, Image.Image]:
         """Identifies the features within the code by commenting it
 
         Args:
@@ -75,9 +136,14 @@ class VifAgent:
             comment_character (str): the character used to comment the code
         Returns:
             str: The new code, commented with the appropriate features
+            Image: PIL image of the base code
         """
-        self.debug_id = str(uuid.uuid4())
-        os.mkdir(os.path.join(self.debug_folder, self.debug_id))
+        """DEBUG"""
+        if self.debug and not hasattr(self, "debug_id"):
+            self.debug_id = str(uuid.uuid4())
+            os.mkdir(os.path.join(self.debug_folder, self.debug_id))
+        """"""
+
         # unifying the code for easier parsing in mutant creation
         code = "\n".join(line.strip() for line in code.split("\n"))
         # render image
@@ -112,7 +178,7 @@ class VifAgent:
             logger.warning(
                 f"Feature search failed, using un-commented code, unparseable response {response.choices[0].message.content}"
             )
-            return code
+            return code,base_image
 
         features_match = search_match.group(1)
         features = json.loads(features_match)
@@ -157,7 +223,7 @@ class VifAgent:
             logger.warning(
                 f"Feature identification failed, using un-commented code, unparseable response {response.choices[0].message.content}"
             )
-            return code
+            return code,base_image
 
         json_boxes = id_match.group(1)
         detected_boxes = json.loads(json_boxes)
@@ -170,8 +236,7 @@ class VifAgent:
             )
         """"""
         # create mutants of the code
-        mutant_creator = TexRegMutantCreator()
-        mutants = mutant_creator.create_mutants(code)
+        mutants = self.mutant_creator.create_mutants(code)
 
         # Check what has been modified by each mutant
         char_id_feature: dict = (
@@ -201,12 +266,12 @@ class VifAgent:
                 )
             """"""
             cur_mse_map: list = []
-            for mutant, mutant_image, char_number in mutants:
-                mutant_image_mask = mutant_image.crop(box["box_2d"])
+            for mutant in mutants:
+                mutant_image_mask = mutant.image.crop(box["box_2d"])
                 cur_mse_map.append(
                     (
                         mse(base_image_mask, mutant_image_mask),
-                        (mutant, mutant_image, char_number),
+                        (mutant, mutant.image, mutant.char_mutant, mutant.removed_char_nb()),
                     )
                 )
             sorted_mse_map = sorted(
@@ -216,10 +281,10 @@ class VifAgent:
             )
             for mse_value, mutant in sorted_mse_map:
                 features_for_char: list = char_id_feature.get(mutant[2], [])
-                features_for_char.append((box["label"], mse_value))
+                features_for_char.append((box["label"], mse_value, mutant[3]))
                 char_id_feature[mutant[2]] = sorted(
-                    features_for_char, key=lambda x: x[1], reverse=True
-                )  # order the labels by the mse, the features that modify selected box the most are kept
+                    features_for_char, key=lambda x: x[1] / 10 * x[2], reverse=True
+                )  # order the labels by the mse divided by the lenght of the edit, the features that modify selected box the most are kept, prioritizing the shortest deletions
 
         annotated_code = code
         # Annotate the code
@@ -229,12 +294,12 @@ class VifAgent:
                 detected_boxes
             ):  # all features have been detected for the modifications of this mutant, skipping
                 continue
-            selected_features = ", ".join(labels[:2])  #
+            selected_features = labels[0]  #
             annotated_code = (
                 annotated_code[:characted_index]
-                + "\n"
                 + comment_character
                 + selected_features
+                + "\n"
                 + annotated_code[characted_index:]
             )
         annotated_code = (
@@ -248,7 +313,7 @@ class VifAgent:
             ) as annot:
                 annot.write(annotated_code)
         """"""
-        return annotated_code
+        return annotated_code, base_image
 
     def __str__(self):
         return (

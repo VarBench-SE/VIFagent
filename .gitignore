@@ -3,3 +3,6 @@
 vif_agent/test_agent.py
 build/
 dist/
+**/__pychache__/
+**.pyc
+vif_agent/mutation/__pycache__/tex_mutant_creator.cpython-312.pyc
