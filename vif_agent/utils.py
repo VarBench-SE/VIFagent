@@ -21,6 +21,14 @@ def mse(image1:Image.Image, image2:Image.Image):
     if arr1.shape != arr2.shape:
         raise ValueError("Images must have the same dimensions")
 
+    max_val = max(arr1.max(), arr2.max())
+    if max_val == 0:
+        return 0.0  # Avoid divide-by-zero
+
+    # Normalize to [0, 1]
+    arr1 /= max_val
+    arr2 /= max_val
+
     return np.mean((arr1 - arr2) ** 2)
 
 def adjust_bbox(box, image: Image.Image):

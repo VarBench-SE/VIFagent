@@ -4,6 +4,9 @@ from typing import Iterable
 from openai import OpenAI
 from collections.abc import Callable
 from PIL import Image
+from sentence_transformers import SentenceTransformer
+from vif_agent.feature import CodeImageMapping, MappedCode
+from vif_agent.mutation.mutant import TexMutant
 from vif_agent.utils import adjust_bbox, encode_image, mse
 from vif_agent.prompt import *
 from vif_agent.mutation.tex_mutant_creator import (
@@ -18,6 +21,8 @@ from functools import cache
 from loguru import logger
 import uuid
 import sys
+
+type Spans = tuple[list[tuple[int, int]], float]  # for lisibiilty
 
 logger.remove()
 logger.add(sys.stderr, level="INFO")
@@ -58,6 +63,8 @@ class VifAgent:
         self.clarify_instruction = clarify_instruction
 
         self.mutant_creator = mutant_creator
+        
+        self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
     def apply_instruction(self, code: str, instruction: str):
         """DEBUG"""
@@ -65,7 +72,11 @@ class VifAgent:
             self.debug_id = str(uuid.uuid4())
             os.mkdir(os.path.join(self.debug_folder, self.debug_id))
         """"""
-        annotated_code, base_image = self.identify_features(code)
+        feature_map = self.identify_features(code)
+        annotated_code = self.annotate_code(code, feature_map)
+
+        base_image = self.code_renderer(code)
+
         user_instruction = IT_PROMPT.format(
             instruction=instruction, content=annotated_code
         )
@@ -126,17 +137,14 @@ class VifAgent:
 
         return new_instruction
 
-    def identify_features(
-        self, code: str, comment_character: str = "%"
-    ) -> tuple[str, Image.Image]:
+    def identify_features(self, code: str) -> MappedCode:
         """Identifies the features within the code by commenting it
 
         Args:
             code (str): The code where the features need to be identified
             comment_character (str): the character used to comment the code
         Returns:
-            str: The new code, commented with the appropriate features
-            Image: PIL image of the base code
+            dict[str, list[Spans]]: a dictionnary associating the feature with a list of probable spans
         """
         """DEBUG"""
         if self.debug and not hasattr(self, "debug_id"):
@@ -178,10 +186,11 @@ class VifAgent:
             logger.warning(
                 f"Feature search failed, using un-commented code, unparseable response {response.choices[0].message.content}"
             )
-            return code,base_image
+            return code, base_image
 
         features_match = search_match.group(1)
         features = json.loads(features_match)
+        self.features = features
         """DEBUG"""
         if self.debug:
             json.dump(
@@ -223,11 +232,12 @@ class VifAgent:
             logger.warning(
                 f"Feature identification failed, using un-commented code, unparseable response {response.choices[0].message.content}"
             )
-            return code,base_image
+            return code, base_image
 
         json_boxes = id_match.group(1)
         detected_boxes = json.loads(json_boxes)
         detected_boxes = [adjust_bbox(box, base_image) for box in detected_boxes]
+        self.detected_boxes = detected_boxes
         """DEBUG"""
         if self.debug:
             json.dump(
@@ -239,9 +249,10 @@ class VifAgent:
         mutants = self.mutant_creator.create_mutants(code)
 
         # Check what has been modified by each mutant
-        char_id_feature: dict = (
+        feature_map: dict[str, list[tuple[CodeImageMapping, float]]] = (
             {}
-        )  # mapping between the character index and the detected feature
+        )  # mapping between the feature and a list of possible spans of the part of the code of the feature and their "probability" of being the right span
+        
         """DEBUG"""
         if self.debug:
             base_image.save(
@@ -265,55 +276,29 @@ class VifAgent:
                     )
                 )
             """"""
-            cur_mse_map: list = []
+            cur_mse_map: list[tuple[float, TexMutant]] = []
             for mutant in mutants:
                 mutant_image_mask = mutant.image.crop(box["box_2d"])
-                cur_mse_map.append(
-                    (
-                        mse(base_image_mask, mutant_image_mask),
-                        (mutant, mutant.image, mutant.char_mutant, mutant.removed_char_nb()),
-                    )
-                )
-            sorted_mse_map = sorted(
-                filter(lambda mutant: mutant[0] != 0, cur_mse_map),
-                key=lambda mutant: mutant[0],
+                cur_mse_map.append((mse(base_image_mask, mutant_image_mask), mutant))
+
+            sorted_mse_map: list[tuple[float, TexMutant]] = sorted(
+                filter(lambda m: m[0] != 0, cur_mse_map),
+                key=lambda m: m[0],
                 reverse=True,
             )
-            for mse_value, mutant in sorted_mse_map:
-                features_for_char: list = char_id_feature.get(mutant[2], [])
-                features_for_char.append((box["label"], mse_value, mutant[3]))
-                char_id_feature[mutant[2]] = sorted(
-                    features_for_char, key=lambda x: x[1] / 10 * x[2], reverse=True
-                )  # order the labels by the mse divided by the lenght of the edit, the features that modify selected box the most are kept, prioritizing the shortest deletions
+            
+            mappings_for_features: list[tuple[CodeImageMapping, float]] = [
+                (CodeImageMapping(mutant.deleted_spans,box["box_2d"]), mse_value)
+                for mse_value, mutant in sorted_mse_map
+            ]
+            
+            feature_map[box["label"]] = mappings_for_features
 
-        annotated_code = code
-        # Annotate the code
-        for characted_index, labels in sorted(char_id_feature.items(), reverse=True):
-            labels = [label[0] for label in labels]  # removing the mse
-            if len(labels) == len(
-                detected_boxes
-            ):  # all features have been detected for the modifications of this mutant, skipping
-                continue
-            selected_features = labels[0]  #
-            annotated_code = (
-                annotated_code[:characted_index]
-                + comment_character
-                + selected_features
-                + "\n"
-                + annotated_code[characted_index:]
-            )
-        annotated_code = (
-            comment_character + features["description"] + "\n" + annotated_code
-        )
-        """DEBUG"""
-        if self.debug:
-            with open(
-                os.path.join(self.debug_folder, self.debug_id, "commented_code.tex"),
-                "w",
-            ) as annot:
-                annot.write(annotated_code)
-        """"""
-        return annotated_code, base_image
+            mapped_code = MappedCode(base_image,code,feature_map,self.embedding_model)
+        return mapped_code
+
+        
+
 
     def __str__(self):
         return (

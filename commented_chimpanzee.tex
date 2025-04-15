@@ -1,4 +1,3 @@
-%A cartoon-style image of a monkey's face inside a blue circle.
 \documentclass[tikz,border=5]{standalone}
 \usepackage[prefix=]{xcolor-material}
 
@@ -34,14 +33,14 @@ chimpanzee/.pic={
 \fill [Pink100, xscale=-1] (1/2,   0) ellipse [x radius=3/5, y radius=2/3];
 %right pink monkey ear
 \fill [Pink100, xscale= 1] (1/2,   0) ellipse [x radius=3/5, y radius=2/3];
-%pink monkey face
+%black monkey head outline
 \scoped{
 \clip(0,-2) rectangle(9/5,1);
 %pink monkey mouth
 \fill [Pink200]            (  0,-2/3) ellipse [x radius=5/6, y radius=  1];
-%pink monkey face
+%black monkey head outline
 \fill [Pink200, xscale=-1] (1/2,   0) ellipse [x radius=3/5, y radius=2/3];
-%right black monkey eye
+%black monkey head outline
 \fill [Pink200, xscale= 1] (1/2,   0) ellipse [x radius=3/5, y radius=2/3];
 }
 \foreach \i in {-1,1}

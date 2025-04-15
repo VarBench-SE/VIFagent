@@ -6,3 +6,6 @@ dist/
 **/__pychache__/
 **.pyc
 vif_agent/mutation/__pycache__/tex_mutant_creator.cpython-312.pyc
+extension/tikz-mapped/node_modules/
+extension/tikz-mapped/.vscode-test.mjs
+extension/tikz-mapped/.vscodeignore

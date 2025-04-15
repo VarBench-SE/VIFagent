@@ -42,13 +42,29 @@ agent = VifAgent(
 )
 
 
-dog_tex = open("shark.tex").read()
+shark_tex = open("shark.tex").read()
 
-modified_code = agent.apply_instruction(dog_tex, "remove the teeth of the shark")
+modified_code = agent.apply_instruction(shark_tex, "remove the teeth of the shark")
 
 with open("modified_shark.tex", "w") as md_shark:
     md_shark.write(modified_code)
 
 ```
 
- 
+### Identify Features
+
+
+```python
+mapped_code = agent.identify_features(shark_tex)
+
+#Get the commented code from the mapped code
+commented_code = mapped_code.get_commented()
+
+with open("commented_shark.tex", "w") as md_chimp:
+   md_chimp.write(commented_code)
+
+#get mappings from a string
+mappings = mapped_code.get_cimappings("ears")
+```
+
+`mapped_code` represents a code in which each feature has been "identified", It contains a mapping from a feature name to a list of parts of the code where the feature could be(and a probability)
