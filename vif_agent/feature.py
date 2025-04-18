@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from PIL import Image
 
 from sentence_transformers import SentenceTransformer
+import torch
 
 type Box2D = tuple[float, float, float, float]
 type Span = tuple[int, int]
@@ -75,16 +76,28 @@ class MappedCode:
             list[tuple[CodeImageMapping, float]]: Most probable part of the code/Image that the feature is in
         """
         asked_feature_embedding = self.embedding_model.encode(feature)
-        similarities = self.embedding_model.similarity(
+        similarities: torch.Tensor = self.embedding_model.similarity(
             self.key_embeddings, asked_feature_embedding
         )
+        # normalize similarities
+        min_sim = similarities.min()
+        max_sim = similarities.max()
+        similarities = (similarities - min_sim) / (max_sim - min_sim + 1e-8)
 
-        all_possible_mappings: list[tuple[CodeImageMapping, float]] = []
+        adjusted_map:dict[str, list[tuple[CodeImageMapping, float]]] = {}
+
         for (feature_name, prob_mappings), similarity in zip(
             self.feature_map.items(), similarities
         ):
-
+            adjusted_mappings = []
             for mapping, prob in prob_mappings:
-                all_possible_mappings.append((mapping, prob * similarity))
+                adjusted_mappings.append([mapping,prob*(similarity**10)])
+                
+            adjusted_map[feature_name] = adjusted_mappings
 
-        return sorted(all_possible_mappings, key=lambda x: x[1], reverse=True)[:2]
+        all_mappings: list[tuple[CodeImageMapping, float]] = []
+        
+        for prob_map in adjusted_map.values():
+            all_mappings = all_mappings +  prob_map
+
+        return sorted(all_mappings, key=lambda x: x[1], reverse=True)

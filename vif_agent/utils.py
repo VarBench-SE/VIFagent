@@ -13,7 +13,7 @@ def encode_image(image: Image.Image):
     image.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
-def mse(image1:Image.Image, image2:Image.Image):
+def norm_mse(image1:Image.Image, image2:Image.Image):
     """Compute Mean Squared Error between two PIL images."""
     arr1 = np.array(image1, dtype=np.float32)
     arr2 = np.array(image2, dtype=np.float32)

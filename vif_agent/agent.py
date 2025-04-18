@@ -1,3 +1,4 @@
+import math
 import os
 import shutil
 from typing import Iterable
@@ -7,7 +8,7 @@ from PIL import Image
 from sentence_transformers import SentenceTransformer
 from vif_agent.feature import CodeImageMapping, MappedCode
 from vif_agent.mutation.mutant import TexMutant
-from vif_agent.utils import adjust_bbox, encode_image, mse
+from vif_agent.utils import adjust_bbox, encode_image, norm_mse
 from vif_agent.prompt import *
 from vif_agent.mutation.tex_mutant_creator import (
     TexMappingMutantCreator,
@@ -63,7 +64,7 @@ class VifAgent:
         self.clarify_instruction = clarify_instruction
 
         self.mutant_creator = mutant_creator
-        
+
         self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
     def apply_instruction(self, code: str, instruction: str):
@@ -252,7 +253,7 @@ class VifAgent:
         feature_map: dict[str, list[tuple[CodeImageMapping, float]]] = (
             {}
         )  # mapping between the feature and a list of possible spans of the part of the code of the feature and their "probability" of being the right span
-        
+
         """DEBUG"""
         if self.debug:
             base_image.save(
@@ -279,26 +280,31 @@ class VifAgent:
             cur_mse_map: list[tuple[float, TexMutant]] = []
             for mutant in mutants:
                 mutant_image_mask = mutant.image.crop(box["box_2d"])
-                cur_mse_map.append((mse(base_image_mask, mutant_image_mask), mutant))
+                cur_mse_map.append(
+                    (
+                        norm_mse(base_image_mask, mutant_image_mask)
+                        / math.prod(base_image_mask.size),
+                        mutant,
+                    )#normalized MSE divided by the size of the image, to favoritize small specific features
+                )
 
             sorted_mse_map: list[tuple[float, TexMutant]] = sorted(
                 filter(lambda m: m[0] != 0, cur_mse_map),
                 key=lambda m: m[0],
                 reverse=True,
             )
-            
+
             mappings_for_features: list[tuple[CodeImageMapping, float]] = [
-                (CodeImageMapping(mutant.deleted_spans,box["box_2d"]), mse_value)
+                (CodeImageMapping(mutant.deleted_spans, box["box_2d"]), mse_value)
                 for mse_value, mutant in sorted_mse_map
             ]
-            
+
             feature_map[box["label"]] = mappings_for_features
 
-            mapped_code = MappedCode(base_image,code,feature_map,self.embedding_model)
+            mapped_code = MappedCode(
+                base_image, code, feature_map, self.embedding_model
+            )
         return mapped_code
-
-        
-
 
     def __str__(self):
         return (
